@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a2744">
+<meta name="description" content="App de ciclo de estudos para concursos com Pomodoro, simulados, metas e revisão espaçada.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CicloEstudos">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Ciclo de Estudos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon"><i class="ti ti-book-2"></i></span>
+        <div>
+          <div class="logo-title">CicloEstudos</div>
+          <div class="logo-sub" id="app-subtitle">Concurso bancário</div>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span id="hdr-pomo" title="Pomodoros hoje"><i class="ti ti-flame"></i> <span>0</span></span>
+        <span id="hdr-hrs" title="Horas líquidas hoje"><i class="ti ti-clock"></i> <span>0h</span></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <nav class="tabs-nav" role="navigation" aria-label="Seções do app">
+    <button class="tab active" onclick="showTab('dash',this)" aria-selected="true"><i class="ti ti-chart-pie"></i><span>Painel</span></button>
+    <button class="tab" onclick="showTab('pomo',this)" aria-selected="false"><i class="ti ti-clock"></i><span>Pomodoro</span></button>
+    <button class="tab" onclick="showTab('sims',this)" aria-selected="false"><i class="ti ti-clipboard-list"></i><span>Simulados</span></button>
+    <button class="tab" onclick="showTab('ciclo',this)" aria-selected="false"><i class="ti ti-refresh"></i><span>Ciclo</span></button>
+    <button class="tab" onclick="showTab('config',this)" aria-selected="false"><i class="ti ti-settings"></i><span>Config</span></button>
+  </nav>
+
+  <main class="main-content">
+
+    <!-- ===== PAINEL ===== -->
+    <section id="tab-dash" class="sec active" aria-label="Painel de acompanhamento">
+      <div class="metrics-row">
+        <div class="mc"><div class="mc-l">Pomodoros hoje</div><div class="mc-v" id="m-pomo">0</div></div>
+        <div class="mc"><div class="mc-l">Horas líquidas</div><div class="mc-v" id="m-hrs">0h</div></div>
+        <div class="mc"><div class="mc-l">Média simulados</div><div class="mc-v" id="m-avg">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-row-between" style="margin-bottom:.5rem">
+          <span class="card-label">Meta de horas hoje</span>
+          <span class="card-label" id="dash-meta-txt">0h / 0h</span>
+        </div>
+        <div class="prog-bg"><div class="prog-bar" id="dash-meta-bar" style="width:0%"></div></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Distribuição por peso na prova</h3>
+        <div class="chart-wrap h240"><canvas id="pieChart" aria-label="Peso das matérias"></canvas></div>
+        <div id="pie-leg" class="pie-legend"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Prioridade por matéria</h3>
+        <div id="prio-list"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Horas recomendadas / semana</h3>
+        <div class="chart-wrap h200"><canvas id="barChart" aria-label="Horas recomendadas"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== POMODORO ===== -->
+    <section id="tab-pomo" class="sec" aria-label="Timer Pomodoro">
+      <div class="card">
+        <h3 class="card-title">Matéria desta sessão</h3>
+        <select class="inp-sel" id="pomo-sub" style="margin-bottom:.85rem" aria-label="Selecione a matéria"><option value="">Selecione...</option></select>
+
+        <div class="pcfg">
+          <div><label class="lbl">Foco (min)</label><input class="inp-num" type="number" id="cfg-f" value="25" min="1" max="90" onchange="resetPomo()"></div>
+          <div><label class="lbl">Pausa curta (min)</label><input class="inp-num" type="number" id="cfg-s" value="5" min="1" max="30" onchange="resetPomo()"></div>
+          <div><label class="lbl">Pausa longa (min)</label><input class="inp-num" type="number" id="cfg-l" value="15" min="1" max="60" onchange="resetPomo()"></div>
+        </div>
+
+        <div class="pomo-ring-wrap">
+          <div class="pomo-ring-container">
+            <svg width="160" height="160" class="pomo-svg" viewBox="0 0 160 160" aria-hidden="true">
+              <circle cx="80" cy="80" r="68" fill="none" stroke="var(--ring-track)" stroke-width="10"/>
+              <circle id="ring-p" cx="80" cy="80" r="68" fill="none" stroke="var(--accent)" stroke-width="10"
+                stroke-linecap="round"
+                stroke-dasharray="427.26"
+                stroke-dashoffset="0"
+                style="transition:stroke-dashoffset .5s linear,stroke .4s;transform:rotate(-90deg);transform-origin:center"/>
+            </svg>
+            <div class="pomo-center">
+              <div class="pomo-disp" id="pomo-disp">25:00</div>
+              <div class="pomo-ph-label" id="pomo-ph">Foco</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dots" aria-label="Pomodoros no ciclo atual">
+          <div class="dot" id="d0"></div><div class="dot" id="d1"></div>
+          <div class="dot" id="d2"></div><div class="dot" id="d3"></div>
+        </div>
+        <div class="pomo-count" id="pomo-cnt">0 pomodoros completos hoje</div>
+
+        <div class="btn-row">
+          <button class="btn btn-p" id="btn-st" onclick="startPomo()"><i class="ti ti-player-play"></i> Iniciar</button>
+          <button class="btn btn-outline" id="btn-pa" onclick="pausePomo()" disabled><i class="ti ti-player-pause"></i> Pausar</button>
+          <button class="btn btn-r" onclick="resetPomo()"><i class="ti ti-refresh"></i> Resetar</button>
+        </div>
+        <div class="pomo-status" id="pomo-st"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Sessões de hoje</h3>
+        <div class="scroll-list" id="slog"><p class="empty-msg">Nenhuma sessão ainda. Complete um pomodoro!</p></div>
+      </div>
+    </section>
+
+    <!-- ===== SIMULADOS + METAS ===== -->
+    <section id="tab-sims" class="sec" aria-label="Simulados e metas">
+
+      <div class="card">
+        <h3 class="card-title">Simulado geral</h3>
+        <div class="form-grid-3">
+          <div><label class="lbl">Data</label><input type="date" id="sg-date" class="inp-text"></div>
+          <div><label class="lbl">% de acertos</label><input type="number" id="sg-score" class="inp-text" min="0" max="100" placeholder="65"></div>
+          <div><label class="lbl">Observação</label><input type="text" id="sg-obs" class="inp-text" placeholder="Opcional"></div>
+        </div>
+        <button class="btn btn-p w-full" onclick="addSimGeral()"><i class="ti ti-plus"></i> Registrar simulado geral</button>
+        <div class="chart-wrap h160" style="margin-top:1rem"><canvas id="sgChart" aria-label="Evolução simulados gerais"></canvas></div>
+        <div class="scroll-list" id="sg-list" style="margin-top:.5rem"><p class="empty-msg">Nenhum simulado geral ainda.</p></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Simulado por matéria + meta</h3>
+        <div class="form-grid-4">
+          <div><label class="lbl">Matéria</label><select id="sm-sub" class="inp-sel"><option value="">Selecione...</option></select></div>
+          <div><label class="lbl">% acertos</label><input type="number" id="sm-score" class="inp-text" min="0" max="100" placeholder="70"></div>
+          <div><label class="lbl">Meta %</label><input type="number" id="sm-meta" class="inp-text" min="0" max="100" placeholder="80"></div>
+          <div><label class="lbl">&nbsp;</label><button class="btn btn-p w-full" onclick="addSimMateria()">Salvar</button></div>
+        </div>
+        <p class="info-text"><i class="ti ti-info-circle"></i> A meta é salva por matéria. Acertos &lt; 60% elevam a prioridade no ciclo.</p>
+        <div id="meta-progress" style="margin-bottom:1rem"></div>
+        <div class="chart-wrap h210"><canvas id="metaChart" aria-label="Meta vs desempenho"></canvas></div>
+        <div class="chart-legend" style="margin-top:8px">
+          <span><span class="legend-dot" style="background:#3266ad"></span>Meta</span>
+          <span><span class="legend-dot" style="background:#639922"></span>Acertos atuais</span>
+        </div>
+        <div class="scroll-list" id="sm-list" style="margin-top:.85rem"><p class="empty-msg">Nenhum simulado por matéria ainda.</p></div>
+      </div>
+    </section>
+
+    <!-- ===== CICLO ===== -->
+    <section id="tab-ciclo" class="sec" aria-label="Ciclo de estudos">
+      <div class="card">
+        <h3 class="card-title">Revisões espaçadas recomendadas</h3>
+        <div id="rev-alerts"></div>
+      </div>
+      <div class="card">
+        <div class="card-row-between" style="margin-bottom:.75rem">
+          <h3 class="card-title" style="margin:0">Ordem do ciclo</h3>
+          <button class="btn btn-sm btn-outline" onclick="resetCycleOrder()"><i class="ti ti-refresh"></i> Auto</button>
+        </div>
+        <p class="info-text" style="margin-bottom:.75rem"><i class="ti ti-arrows-move"></i> Arraste para reordenar conforme sua dificuldade pessoal.</p>
+        <div id="cycle-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== CONFIG ===== -->
+    <section id="tab-config" class="sec" aria-label="Configurações">
+      <div class="card">
+        <h3 class="card-title">Horas de estudo diárias</h3>
+        <div class="range-row">
+          <label>Horas por dia</label>
+          <input type="range" id="cfg-hpd" min="1" max="12" step="1" value="4" oninput="updateHoursCfg()">
+          <span id="cfg-hpd-val">4h</span>
+        </div>
+        <div class="range-row">
+          <label>Dias de estudo / semana</label>
+          <input type="range" id="cfg-dpw" min="1" max="7" step="1" value="5" oninput="updateHoursCfg()">
+          <span id="cfg-dpw-val">5 dias</span>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">Total semanal disponível</div>
+          <div class="stat-box-val" id="cfg-total">20h / semana</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-row-between" style="margin-bottom:.75rem">
+          <h3 class="card-title" style="margin:0">Matérias do ciclo</h3>
+          <div id="pct-indicator" class="pct-badge pct-ok">Total: 100%</div>
+        </div>
+        <p class="info-text" style="margin-bottom:.85rem">Edite nome, porcentagem, frequência e horas. O total de % deve somar 100.</p>
+        <div class="subj-hdr">
+          <span>Matéria</span><span>% prova</span><span>Freq.</span><span>Hrs/sem</span><span>Área</span><span></span>
+        </div>
+        <div id="subj-table"></div>
+        <div class="add-subj-form">
+          <div><label class="lbl">Nova matéria</label><input type="text" id="ns-name" class="inp-text" placeholder="Nome"></div>
+          <div><label class="lbl">%</label><input type="number" id="ns-pct" class="inp-text" min="0" max="100" placeholder="10"></div>
+          <div><label class="lbl">Freq.</label>
+            <select id="ns-freq" class="inp-sel">
+              <option value="1">1x</option><option value="2">2x</option>
+            </select>
+          </div>
+          <div><label class="lbl">Área</label><input type="text" id="ns-area" class="inp-text" placeholder="Básico"></div>
+          <div><label class="lbl">&nbsp;</label><button class="btn btn-g w-full" onclick="addSubject()"><i class="ti ti-plus"></i></button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Intervalos de revisão espaçada</h3>
+        <div class="range-row">
+          <label>1ª revisão (dias)</label>
+          <input type="range" id="cfg-r1" min="1" max="7" step="1" value="1" oninput="updateRevCfg()">
+          <span id="cfg-r1-val">1 dia</span>
+        </div>
+        <div class="range-row">
+          <label>2ª revisão (dias)</label>
+          <input type="range" id="cfg-r2" min="2" max="14" step="1" value="3" oninput="updateRevCfg()">
+          <span id="cfg-r2-val">3 dias</span>
+        </div>
+        <div class="range-row">
+          <label>3ª revisão (dias)</label>
+          <input type="range" id="cfg-r3" min="5" max="30" step="1" value="7" oninput="updateRevCfg()">
+          <span id="cfg-r3-val">7 dias</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Dados salvos</h3>
+        <p class="info-text">Todos os dados são salvos automaticamente no navegador (localStorage).</p>
+        <button class="btn btn-r" style="margin-top:.75rem" onclick="clearAllData()"><i class="ti ti-trash"></i> Apagar todos os dados</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // ignora erro em file:// local
+      });
+    });
+  }
+</script>
+</body>
+</html>
