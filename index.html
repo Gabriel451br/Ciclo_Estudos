@@ -65,6 +65,51 @@
         <div class="prog-bg"><div class="prog-bar" id="dash-meta-bar" style="width:0%"></div></div>
       </div>
 
+      <!-- CARD ESTATÍSTICAS COM FILTRO -->
+      <div class="card">
+        <h3 class="card-title">Estatísticas de estudo</h3>
+
+        <!-- Botões de modo -->
+        <div class="stats-btns">
+          <button class="btn btn-sm stats-btn active" data-mode="day"   onclick="setStatsMode('day')">Hoje</button>
+          <button class="btn btn-sm stats-btn"        data-mode="week"  onclick="setStatsMode('week')">Semana</button>
+          <button class="btn btn-sm stats-btn"        data-mode="month" onclick="setStatsMode('month')">Mês</button>
+          <button class="btn btn-sm stats-btn"        data-mode="total" onclick="setStatsMode('total')">Total</button>
+          <button class="btn btn-sm stats-btn"        data-mode="custom" onclick="setStatsMode('custom')">Período</button>
+        </div>
+
+        <!-- Seletor de datas customizado (oculto por padrão) -->
+        <div id="stats-custom-row" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.75rem">
+          <div style="display:flex;align-items:center;gap:6px;flex:1">
+            <label class="lbl" style="white-space:nowrap;margin:0">De:</label>
+            <input type="date" id="stats-from" class="inp-text" style="flex:1">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex:1">
+            <label class="lbl" style="white-space:nowrap;margin:0">Até:</label>
+            <input type="date" id="stats-to" class="inp-text" style="flex:1">
+          </div>
+          <button class="btn btn-p btn-sm" onclick="applyCustomStats()">Aplicar</button>
+        </div>
+
+        <!-- Métricas do período -->
+        <div id="stats-filter-result">
+          <div class="stats-grid">
+            <div class="stat-item"><div class="stat-val">—</div><div class="stat-lbl">Horas líquidas</div></div>
+            <div class="stat-item"><div class="stat-val">—</div><div class="stat-lbl">Pomodoros</div></div>
+            <div class="stat-item"><div class="stat-val">—</div><div class="stat-lbl">Questões</div></div>
+            <div class="stat-item"><div class="stat-val">—</div><div class="stat-lbl">Média simulados</div></div>
+            <div class="stat-item"><div class="stat-val">—</div><div class="stat-lbl">Dias estudados</div></div>
+            <div class="stat-item"><div class="stat-val">—</div><div class="stat-lbl">Média/dia</div></div>
+          </div>
+        </div>
+
+        <!-- Barra de progresso vs meta -->
+        <div style="margin-top:.75rem">
+          <div class="prog-bg"><div class="prog-bar" id="stats-filter-bar" style="width:0%;background:linear-gradient(90deg,#8b5cf6,#a78bfa)"></div></div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px;text-align:right" id="stats-filter-bar-txt"></div>
+        </div>
+      </div>
+
       <div class="card">
         <h3 class="card-title">Distribuição por peso na prova</h3>
         <div class="chart-wrap h240"><canvas id="pieChart" aria-label="Peso das matérias"></canvas></div>

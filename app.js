@@ -97,7 +97,9 @@ let S = deepClone(DEFAULT_STATE);
 let pomoState = {
   phase: 'focus', running: false,
   startedAt: null, remaining: 0, total: 0,
-  cycle: 0, subject: '', rafId: null
+  cycle: 0, subject: '',
+  rafId: null,       // requestAnimationFrame — visual (aba ativa)
+  bgTimer: null      // setInterval — background watchdog (dispara phaseEnd em qualquer aba)
 };
 
 const charts = {};
@@ -260,6 +262,102 @@ function showTab(tab, btn) {
 }
 
 // ─── MÉTRICAS ────────────────────────────────
+// ─── ESTATÍSTICAS COM FILTRO DE PERÍODO ──────
+// Períodos: 'day' | 'week' | 'month' | 'total' | 'custom'
+let statsFilter = { mode: 'day', from: null, to: null };
+
+function getFilterRange(mode, from, to){
+  const now = new Date();
+  switch(mode){
+    case 'day':{
+      const s=new Date(now); s.setHours(0,0,0,0);
+      const e=new Date(now); e.setHours(23,59,59,999);
+      return [s.getTime(), e.getTime()];
+    }
+    case 'week':{
+      const s=new Date(now); s.setDate(now.getDate()-now.getDay()); s.setHours(0,0,0,0);
+      const e=new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+      return [s.getTime(), e.getTime()];
+    }
+    case 'month':{
+      const s=new Date(now.getFullYear(),now.getMonth(),1,0,0,0,0);
+      const e=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);
+      return [s.getTime(), e.getTime()];
+    }
+    case 'custom':{
+      if (!from||!to) return [0, Date.now()];
+      return [new Date(from+'T00:00:00').getTime(), new Date(to+'T23:59:59').getTime()];
+    }
+    default: return [0, Date.now()]; // total
+  }
+}
+
+function renderStatsFilter(){
+  const [tFrom, tTo] = getFilterRange(statsFilter.mode, statsFilter.from, statsFilter.to);
+
+  const focusSessions = S.sessions.filter(s => s.phase==='focus' && s.date>=tFrom && s.date<=tTo);
+  const totalSec = focusSessions.reduce((a,b)=>a+b.seconds, 0);
+  const pomoCount = focusSessions.length;
+  const h = Math.floor(totalSec/3600), m = Math.floor((totalSec%3600)/60);
+  const hrsText = totalSec===0 ? '0h' : h>0 ? `${h}h${m>0?' '+m+'m':''}` : `${m}m`;
+
+  const questoesTotal = S.questoes
+    .filter(q=>{ const d=new Date(q.date+'T12:00:00').getTime(); return d>=tFrom&&d<=tTo; })
+    .reduce((a,b)=>a+b.qty, 0);
+
+  const allSims = [
+    ...S.simsGeral.filter(s=>{ const d=new Date(s.date+'T12:00:00').getTime(); return d>=tFrom&&d<=tTo; }),
+    ...S.simsMateria.filter(s=>s.date>=tFrom&&s.date<=tTo)
+  ];
+  const avgSim = allSims.length ? Math.round(allSims.reduce((a,b)=>a+b.score,0)/allSims.length) : null;
+
+  // Dias únicos estudados no período
+  const daysSet = new Set(focusSessions.map(s=>new Date(s.date).toDateString()));
+
+  const el = document.getElementById('stats-filter-result');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-item"><div class="stat-val">${hrsText}</div><div class="stat-lbl">Horas líquidas</div></div>
+      <div class="stat-item"><div class="stat-val">${pomoCount}</div><div class="stat-lbl">Pomodoros</div></div>
+      <div class="stat-item"><div class="stat-val">${questoesTotal}</div><div class="stat-lbl">Questões</div></div>
+      <div class="stat-item"><div class="stat-val">${avgSim!==null?avgSim+'%':'—'}</div><div class="stat-lbl">Média simulados</div></div>
+      <div class="stat-item"><div class="stat-val">${daysSet.size}</div><div class="stat-lbl">Dias estudados</div></div>
+      <div class="stat-item"><div class="stat-val">${daysSet.size>0?(totalSec/daysSet.size/3600).toFixed(1)+'h':'—'}</div><div class="stat-lbl">Média/dia</div></div>
+    </div>`;
+
+  // Barra de progresso do período vs meta
+  const expectedDays = statsFilter.mode==='day'?1:statsFilter.mode==='week'?S.cfg.dpw:statsFilter.mode==='month'?S.cfg.dpw*4:null;
+  const bar = document.getElementById('stats-filter-bar');
+  const barTxt = document.getElementById('stats-filter-bar-txt');
+  if (bar && expectedDays){
+    const metaSec = expectedDays * S.cfg.hpd * 3600;
+    const pct = Math.min(100,Math.round(totalSec/metaSec*100));
+    bar.style.width = pct+'%';
+    if(barTxt) barTxt.textContent = `${pct}% da meta (${(metaSec/3600).toFixed(0)}h esperadas)`;
+  } else if(bar){
+    bar.style.width='100%';
+    if(barTxt) barTxt.textContent='';
+  }
+}
+
+function setStatsMode(mode){
+  statsFilter.mode=mode;
+  document.querySelectorAll('.stats-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mode===mode);
+  });
+  const customRow = document.getElementById('stats-custom-row');
+  if(customRow) customRow.style.display = mode==='custom'?'flex':'none';
+  renderStatsFilter();
+}
+
+function applyCustomStats(){
+  statsFilter.from = document.getElementById('stats-from').value;
+  statsFilter.to   = document.getElementById('stats-to').value;
+  if(!statsFilter.from||!statsFilter.to){alert('Informe as duas datas.');return;}
+  renderStatsFilter();
+}
+
 function updateMetrics() {
   const totalSec = S.sessions.filter(s => s.phase==='focus').reduce((a,b) => a+b.seconds,0);
   const h = Math.floor(totalSec/3600), m = Math.floor((totalSec%3600)/60);
@@ -286,6 +384,9 @@ function updateMetrics() {
     .reduce((a,b) => a+b.qty, 0);
   const hdrQ = document.getElementById('hdr-q');
   if (hdrQ) hdrQ.querySelector('span').textContent = todayQ+'q';
+
+  // Atualiza bloco de estatísticas de período se existir
+  renderStatsFilter();
 }
 
 // ─── PAINEL ──────────────────────────────────
@@ -715,12 +816,28 @@ function pomoTick(){
   const elapsed=(Date.now()-pomoState.startedAt)/1000;
   const remaining=Math.round(pomoState.remaining-elapsed);
   updatePomoDisplay(remaining);
-  if (remaining<=0){pomoState.running=false;phaseEnd();return;}
-  pomoState.rafId=requestAnimationFrame(pomoTick);
+  if (pomoState.running) pomoState.rafId=requestAnimationFrame(pomoTick);
+}
+
+// Watchdog — 500ms, roda mesmo em background, dispara phaseEnd quando o tempo acaba
+function startBgTimer(){
+  clearInterval(pomoState.bgTimer);
+  pomoState.bgTimer=setInterval(()=>{
+    if (!pomoState.running) return;
+    const elapsed=(Date.now()-pomoState.startedAt)/1000;
+    const remaining=pomoState.remaining-elapsed;
+    if (remaining<=0){
+      pomoState.running=false;
+      clearInterval(pomoState.bgTimer);
+      cancelAnimationFrame(pomoState.rafId);
+      phaseEnd();
+    }
+  },500);
 }
 
 function resetPomo(){
   cancelAnimationFrame(pomoState.rafId);
+  clearInterval(pomoState.bgTimer);
   pomoState.running=false; pomoState.phase='focus';
   pomoState.total=getFSec(); pomoState.remaining=getFSec(); pomoState.startedAt=null;
   setPhaseDisplay(); updatePomoDisplay(pomoState.remaining);
@@ -740,6 +857,7 @@ function startPomo(){
   document.getElementById('pomo-st').textContent='Estudando: '+sub;
   cancelAnimationFrame(pomoState.rafId);
   pomoState.rafId=requestAnimationFrame(pomoTick);
+  startBgTimer();
 }
 
 function pausePomo(){
@@ -748,12 +866,14 @@ function pausePomo(){
   pomoState.remaining=Math.max(0,pomoState.remaining-elapsed);
   pomoState.startedAt=null; pomoState.running=false;
   cancelAnimationFrame(pomoState.rafId);
+  clearInterval(pomoState.bgTimer);
   document.getElementById('btn-st').disabled=false;
   document.getElementById('btn-pa').disabled=true;
   document.getElementById('pomo-st').textContent='Pausado. Clique em Iniciar para continuar.';
 }
 
 function phaseEnd(){
+  clearInterval(pomoState.bgTimer);
   cancelAnimationFrame(pomoState.rafId);
   const {subject,phase,total}=pomoState;
   S.sessions.push({subject,seconds:total,date:Date.now(),phase});
@@ -782,6 +902,19 @@ function phaseEnd(){
 }
 
 // ─── INIT ────────────────────────────────────
+// ─── RESET DIÁRIO AUTOMÁTICO ─────────────────
+function checkDailyReset(){
+  const today=todayStr();
+  if (S.pomoTodayDate && S.pomoTodayDate!==today){
+    S.pomoToday=0;
+    S.pomoTodayDate=today;
+    saveState();
+    updateMetrics();
+    renderSLog();
+    document.getElementById('pomo-cnt').textContent='0 pomodoros completos hoje';
+  }
+}
+
 function init(){
   initAudio();
   loadState();
@@ -790,6 +923,9 @@ function init(){
   renderPrioList(); renderCycle(); renderRevAlerts();
   updateMetrics(); renderSLog(); renderQuestoes();
   setTimeout(renderCharts,80);
+
+  // Verifica reset diário a cada minuto (cobre virada de meia-noite com app aberto)
+  setInterval(checkDailyReset, 60000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
